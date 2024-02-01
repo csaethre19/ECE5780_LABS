@@ -30,29 +30,29 @@ int main(void) {
 	// Enable the GPIOC clock in the RCC
 	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
 	
-	// Set pins PC8 and PC9 to general purpose output mode in MODER register
-  GPIOC->MODER |= (1<<16); // PC8
-	GPIOC->MODER |= (1<<18); // PC9
+	// Set pins PC6 (red) and PC7 (blue) to general purpose output mode in MODER register
+  GPIOC->MODER |= (1<<12); // PC6
+	GPIOC->MODER |= (1<<14); // PC7
 	
-	// Set pins PC8 and PC9 to push-pull output type in OTYPER register
-	GPIOC->OTYPER &= ~(1<<8); // PC8
-	GPIOC->OTYPER &= ~(1<<9); // PC9
+	// Set pins to push-pull output type in OTYPER register
+	GPIOC->OTYPER &= ~(1<<6); // PC6
+	GPIOC->OTYPER &= ~(1<<7); // PC7
 	
-	// Set pins PC8 and PC9 to low speed in OSPEEDR register
-	GPIOC->OSPEEDR &= ~(1<<16); // PC8
-	GPIOC->OSPEEDR &= ~(1<<18); // PC8
+	// Set pins to low speed in OSPEEDR register
+	GPIOC->OSPEEDR &= ~(1<<12); // PC6
+	GPIOC->OSPEEDR &= ~(1<<14); // PC7
 	
 	// Set to no pull-up/down resistors in PUPDR register
-	GPIOC->PUPDR &= ~((1<<16) | (1<<17)); // PC8
-	GPIOC->PUPDR &= ~((1<<18) | (1<<19)); // PC9
+	GPIOC->PUPDR &= ~((1<<12) | (1<<13)); // PC6
+	GPIOC->PUPDR &= ~((1<<14) | (1<<15)); // PC7
 
-	GPIOC->ODR |= (1<<8); // PC8 high
-	GPIOC->ODR &= ~(1<<9); // PC9 low
+	GPIOC->ODR |= (1<<6); // PC6 high
+	GPIOC->ODR &= ~(1<<7); // PC7 low
 	
 	while (1) {
 		HAL_Delay(200); // Delay 200ms
 		// Toggle the output state of both PC8 and PC9
-		GPIOC->ODR ^= GPIO_ODR_8 | GPIO_ODR_9;
+		GPIOC->ODR ^= GPIO_ODR_6 | GPIO_ODR_7;
 	}
 }
 /**
