@@ -18,7 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-
+#include <stdio.h>
 
 
 /* Private function prototypes -----------------------------------------------*/
@@ -26,6 +26,8 @@ void SystemClock_Config(void);
 
 int main(void) {
 	SystemClock_Config(); //Configure the system clock
+	
+	// Setting up red and blue LEDs:
 	
 	// Enable the GPIOC clock in the RCC
 	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
@@ -49,10 +51,46 @@ int main(void) {
 	GPIOC->ODR |= (1<<6); // PC6 high
 	GPIOC->ODR &= ~(1<<7); // PC7 low
 	
+	// Setting up USER push-button:
+	
+	// Enable the GPIOA clock in the RCC
+	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
+	
+	// Set pins for push-button to input mode in MODER register
+	GPIOA->MODER &= ~(3);
+	
+	// Set pins to low speed in OSPEEDR register
+	GPIOA->OSPEEDR &= ~(3);
+	
+	// Enable pull-down resistor in PUPDR register
+	GPIOA->PUPDR |= (2);		
+	
+	GPIOC->ODR |= GPIO_ODR_6; // PC6 high
+	GPIOC->ODR &= ~(GPIO_ODR_7); // PC7 low
+	
+	int unsigned ACTIVE_LED = GPIO_ODR_6;
+	
 	while (1) {
-		HAL_Delay(200); // Delay 200ms
-		// Toggle the output state of both PC8 and PC9
-		GPIOC->ODR ^= GPIO_ODR_6 | GPIO_ODR_7;
+		// Monitoring the state of the button
+		uint32_t button_state = GPIOA->IDR & 1;
+		//printf("button state: %d", button_state);
+				
+		// Toggle LED pins when button press detected
+		if (button_state) {
+			if (ACTIVE_LED == GPIO_ODR_6) {
+					GPIOC->ODR |= GPIO_ODR_7;
+					GPIOC->ODR &= ~(GPIO_ODR_6);
+					ACTIVE_LED = GPIO_ODR_7;
+			}
+			else {
+				GPIOC->ODR |= GPIO_ODR_6;
+				GPIOC->ODR &= ~(GPIO_ODR_7);
+				ACTIVE_LED = GPIO_ODR_6;
+			}
+		}
+				
+		// Include software debouncer routine to prevent multiple toggles on single button press
+
 	}
 }
 /**
