@@ -65,32 +65,39 @@ int main(void) {
 	// Enable pull-down resistor in PUPDR register
 	GPIOA->PUPDR |= (2);		
 	
-	GPIOC->ODR |= GPIO_ODR_6; // PC6 high
-	GPIOC->ODR &= ~(GPIO_ODR_7); // PC7 low
+	// Setting initial LED states
+	GPIOC->ODR |= GPIO_ODR_6; // PC6 ON
+	GPIOC->ODR &= ~(GPIO_ODR_7); // PC7 OFF
 	
-	int unsigned ACTIVE_LED = GPIO_ODR_6;
-	
+	uint32_t ACTIVE_LED = GPIO_ODR_6;
+	uint32_t debouncer = 0;
+
 	while (1) {
+		debouncer = (debouncer << 1); // Always shift every loop iteration
+		
+		uint32_t button_state = GPIOA->IDR & 0x1;
 		// Monitoring the state of the button
-		uint32_t button_state = GPIOA->IDR & 1;
 		//printf("button state: %d", button_state);
 				
 		// Toggle LED pins when button press detected
 		if (button_state) {
+			debouncer |= 0x01; // Set lowest bit
+		}
+		
+		// Trigger toggle only when transitioning to steady high
+		if (debouncer == 0x7FFFFFFF) {
 			if (ACTIVE_LED == GPIO_ODR_6) {
-					GPIOC->ODR |= GPIO_ODR_7;
-					GPIOC->ODR &= ~(GPIO_ODR_6);
-					ACTIVE_LED = GPIO_ODR_7;
+					GPIOC->ODR |= GPIO_ODR_7;     // Blue ON
+					GPIOC->ODR &= ~(GPIO_ODR_6);  // Red OFF
+					ACTIVE_LED = GPIO_ODR_7;      // ACTIVE -> Blue
 			}
 			else {
-				GPIOC->ODR |= GPIO_ODR_6;
-				GPIOC->ODR &= ~(GPIO_ODR_7);
-				ACTIVE_LED = GPIO_ODR_6;
+					GPIOC->ODR |= GPIO_ODR_6;    // Red ON
+					GPIOC->ODR &= ~(GPIO_ODR_7); // Blue OFF
+					ACTIVE_LED = GPIO_ODR_6;     // ACTIVE -> Red
 			}
 		}
 				
-		// Include software debouncer routine to prevent multiple toggles on single button press
-
 	}
 }
 /**
