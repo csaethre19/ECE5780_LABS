@@ -19,67 +19,42 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
 
-/* USER CODE END Includes */
-
-/* Private typedef -----------------------------------------------------------*/
-/* USER CODE BEGIN PTD */
-
-/* USER CODE END PTD */
-
-/* Private define ------------------------------------------------------------*/
-/* USER CODE BEGIN PD */
-
-/* USER CODE END PD */
-
-/* Private macro -------------------------------------------------------------*/
-/* USER CODE BEGIN PM */
-
-/* USER CODE END PM */
-
-/* Private variables ---------------------------------------------------------*/
-
-/* USER CODE BEGIN PV */
-
-/* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-/* USER CODE BEGIN PFP */
-
-/* USER CODE END PFP */
-
-/* Private user code ---------------------------------------------------------*/
-/* USER CODE BEGIN 0 */
-
-/* USER CODE END 0 */
 
 int main(void) {
-	HAL_Init(); // Reset of all peripherals, init the Flash and Systick
 	SystemClock_Config(); //Configure the system clock
 	
-	/* This example uses HAL library calls to control
-	the GPIOC peripheral. You’ll be redoing this code
-	with hardware register access. */
-	__HAL_RCC_GPIOC_CLK_ENABLE(); // Enable the GPIOC clock in the RCC
+	// Enable the GPIOC clock in the RCC
+	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
 	
-	// Set up a configuration struct to pass to the initialization function
-	GPIO_InitTypeDef initStr = {GPIO_PIN_8 | GPIO_PIN_9,
-	GPIO_MODE_OUTPUT_PP,
-	GPIO_SPEED_FREQ_LOW,
-	GPIO_NOPULL};
-	HAL_GPIO_Init(GPIOC, &initStr); // Initialize pins PC8 & PC9
-	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, GPIO_PIN_SET); // Start PC8 high
+	// Set pins PC8 and PC9 to general purpose output mode in MODER register
+  GPIOC->MODER |= (1<<16); // PC8
+	GPIOC->MODER |= (1<<18); // PC9
+	
+	// Set pins PC8 and PC9 to push-pull output type in OTYPER register
+	GPIOC->OTYPER &= ~(1<<8); // PC8
+	GPIOC->OTYPER &= ~(1<<9); // PC9
+	
+	// Set pins PC8 and PC9 to low speed in OSPEEDR register
+	GPIOC->OSPEEDR &= ~(1<<16); // PC8
+	GPIOC->OSPEEDR &= ~(1<<18); // PC8
+	
+	// Set to no pull-up/down resistors in PUPDR register
+	GPIOC->PUPDR &= ~((1<<16) | (1<<17)); // PC8
+	GPIOC->PUPDR &= ~((1<<18) | (1<<19)); // PC9
+
+	GPIOC->ODR |= (1<<8); // PC8 high
+	GPIOC->ODR &= ~(1<<9); // PC9 low
 	
 	while (1) {
-	HAL_Delay(200); // Delay 200ms
-	// Toggle the output state of both PC8 and PC9
-	HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_8 | GPIO_PIN_9);
+		HAL_Delay(200); // Delay 200ms
+		// Toggle the output state of both PC8 and PC9
+		GPIOC->ODR ^= GPIO_ODR_8 | GPIO_ODR_9;
 	}
 }
-
 /**
   * @brief System Clock Configuration
   * @retval None
