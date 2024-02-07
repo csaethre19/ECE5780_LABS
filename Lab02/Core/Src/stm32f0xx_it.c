@@ -60,6 +60,8 @@
 
 /* USER CODE END EV */
 
+volatile uint32_t interrupt_count = 0;
+
 /******************************************************************************/
 /*           Cortex-M0 Processor Interruption and Exception Handlers          */
 /******************************************************************************/
@@ -124,7 +126,12 @@ void PendSV_Handler(void)
   */
 void SysTick_Handler(void)
 {
-	// TODO: Toggle blue PC7 every 200ms
+	// Toggle blue PC7 every 200ms
+	interrupt_count++;
+	if (interrupt_count == 200) {
+		GPIOC->ODR ^= GPIO_ODR_7;
+		interrupt_count = 0;
+	}
 	
   /* USER CODE BEGIN SysTick_IRQn 0 */
 
