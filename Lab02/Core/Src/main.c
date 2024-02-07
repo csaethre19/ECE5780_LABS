@@ -62,11 +62,40 @@ int main(void)
 	// Set green PC9 high
 	GPIOC->ODR |= GPIO_ODR_9; // PC9 (green) high
 	
+	// Setting up USER push-button:
+	
+	// Enable the GPIOA clock in the RCC
+	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
+	
+	// Set pins for push-button to input mode in MODER register
+	GPIOA->MODER &= ~(3);
+	
+	// Set pins to low speed in OSPEEDR register
+	GPIOA->OSPEEDR &= ~(3);
+	
+	// Enable pull-down resistor in PUPDR register
+	GPIOA->PUPDR |= (2);	
+	
   /* Configure the system clock */
   SystemClock_Config();
 	
-	// TODO: Create global volatile or local-static variable to store interrupt count
-
+	// Set input line 0 (EXTI0) for EXTI peripheral to generate interrupts on rising-edge of user button:
+	
+	// Setting mask (enabled/unmask) bit in EXTI_IMR register
+	EXTI->IMR = 0x0001;
+	// Setting EXTI input line 0 to have rising-edge trigger
+	EXTI->RTSR = 0x0001;
+	
+	// Use RCC to enable the peripheral clock to the SYSCFG peripheral
+	RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+	// Configure multiplexer to route PA0 (user button) to the EXTI input line 0 (EXTI0)
+	SYSCFG->EXTICR[0] |= SYSCFG_EXTICR1_EXTI0_PA;
+	
+	// Enable EXTI0_1_IRQn for EXTI line 0 interrupt by passing defined name to NVIC_EnableIRQ()
+	NVIC_EnableIRQ(EXTI0_1_IRQn);
+	// Setting interrupt to 1 (high-priority)
+	NVIC_SetPriority(EXTI0_1_IRQn, 1);
+	
   while (1)
   {
 		// Toggle red PC6 with moderate-slow delay (400-600ms) 
