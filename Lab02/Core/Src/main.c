@@ -23,6 +23,7 @@
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 
+void EXTI0_1_IRQHandler(void);
 
 /**
   * @brief  The application entry point.
@@ -104,6 +105,13 @@ int main(void)
 		GPIOC->ODR ^= GPIO_ODR_6;
 		
   }
+}
+
+void EXTI0_1_IRQHandler(void) {
+	// Toggle green and orange LEDs
+	GPIOC->ODR ^= GPIO_ODR_8 | GPIO_ODR_9;
+	// Clear flag for input line 0 in the EXTI pending register
+	EXTI->PR |= EXTI_PR_PR0;
 }
 
 /**
