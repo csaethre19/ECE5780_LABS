@@ -19,7 +19,8 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 
-
+volatile uint32_t i;
+	
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 
@@ -94,8 +95,12 @@ int main(void)
 	
 	// Enable EXTI0_1_IRQn for EXTI line 0 interrupt by passing defined name to NVIC_EnableIRQ()
 	NVIC_EnableIRQ(EXTI0_1_IRQn);
-	// Setting interrupt to 1 (high-priority)
-	NVIC_SetPriority(EXTI0_1_IRQn, 1);
+	
+	// Setting interrupt priority 3 (low)
+	NVIC_SetPriority(EXTI0_1_IRQn, 3);
+	
+	// Setting SysTick interrupt priotiy to 2 (medium)
+	NVIC_SetPriority(SysTick_IRQn, 2);
 	
   while (1)
   {
@@ -109,6 +114,11 @@ int main(void)
 
 void EXTI0_1_IRQHandler(void) {
 	// Toggle green and orange LEDs
+	GPIOC->ODR ^= GPIO_ODR_8 | GPIO_ODR_9;
+
+	for (i = 0; i < 1500000; i++) {
+			
+	}
 	GPIOC->ODR ^= GPIO_ODR_8 | GPIO_ODR_9;
 	// Clear flag for input line 0 in the EXTI pending register
 	EXTI->PR |= EXTI_PR_PR0;
