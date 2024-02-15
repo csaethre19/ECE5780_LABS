@@ -86,8 +86,8 @@ int main(void)
 	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
 	
 	// Setting PSC and ARR values
-	TIM3->PSC = 399;
-	TIM3->ARR = 25;
+	TIM3->PSC = 104;
+	TIM3->ARR = 95;
 	
 	// Configuring output channels to PWM mode:
 	
@@ -109,8 +109,8 @@ int main(void)
 	TIM3->CCER |= (1 << 4);
 	
 	// Set capture/compare registers for both channels to 20% of ARR value
-	TIM3->CCR1 = 5;
-	TIM3->CCR2 = 5;
+	TIM3->CCR1 = 19;
+	TIM3->CCR2 = 19;
 	
 	// Enable TIM3 in RCC
 	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
