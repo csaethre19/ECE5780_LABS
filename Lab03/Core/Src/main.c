@@ -25,14 +25,44 @@ void SystemClock_Config(void);
 
 void TIM2_IRQHandler(void);
 
+void init_leds(void);
+
+void init_tim2(void);
+
+void init_tim3(void);
+
 /**
   * @brief  The application entry point.
   * @retval int
   */
 int main(void)
 {
-	// Init all LEDs:
+	init_leds();
+		
+  /* Configure the system clock */
+  SystemClock_Config();
 	
+	init_tim2();
+	
+	init_tim3();
+	
+  while (1)
+  {
+
+  }
+
+}
+
+void TIM2_IRQHandler(void) 
+{
+	// Toggle green and orange LEDs
+	GPIOC->ODR ^= GPIO_ODR_8 | GPIO_ODR_9;
+	// Clear pending flag in status register
+	TIM2->SR = 0;
+}
+
+void init_leds(void)
+{
 	// Enable the GPIOC clock in the RCC
 	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
 	
@@ -62,10 +92,10 @@ int main(void)
 	
 	// Set green PC9 high
 	GPIOC->ODR |= GPIO_ODR_9; // PC9 (green) high
-	
-  /* Configure the system clock */
-  SystemClock_Config();
-	
+}
+
+void init_tim2(void) 
+{
 	// Enable TIM2 in RCC
 	RCC->APB1ENR |= RCC_APB1ENR_TIM2EN;
 	
@@ -81,7 +111,10 @@ int main(void)
 	
 	// Enable timer interrupt handler via NVIC - need to implement interrupt handler
 	NVIC_EnableIRQ(TIM2_IRQn);
-	
+}
+
+void init_tim3(void)
+{
 	// Enable TIM3 in RCC
 	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
 	
@@ -123,22 +156,8 @@ int main(void)
 	GPIOC->AFR[0] |= 0x0 << GPIO_AFRL_AFRL6_Pos;
 	GPIOC->AFR[0] |= 0x0 << GPIO_AFRL_AFRL7_Pos;
 	
+	// Start timer
 	TIM3->CR1 = 1;
-	
-  while (1)
-  {
-
-  }
-
-}
-
-void TIM2_IRQHandler(void) {
-	
-	// Toggle green and orange LEDs
-	GPIOC->ODR ^= GPIO_ODR_8 | GPIO_ODR_9;
-	// Clear pending flag in status register
-	TIM2->SR = 0;
-	
 }
 
 /**
