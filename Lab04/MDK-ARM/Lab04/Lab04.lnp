@@ -1,0 +1,25 @@
+--cpu Cortex-M0
+"lab04\startup_stm32f072xb.o"
+"lab04\main.o"
+"lab04\stm32f0xx_it.o"
+"lab04\stm32f0xx_hal_msp.o"
+"lab04\stm32f0xx_hal_tim.o"
+"lab04\stm32f0xx_hal_tim_ex.o"
+"lab04\stm32f0xx_hal_rcc.o"
+"lab04\stm32f0xx_hal_rcc_ex.o"
+"lab04\stm32f0xx_hal.o"
+"lab04\stm32f0xx_hal_i2c.o"
+"lab04\stm32f0xx_hal_i2c_ex.o"
+"lab04\stm32f0xx_hal_gpio.o"
+"lab04\stm32f0xx_hal_dma.o"
+"lab04\stm32f0xx_hal_cortex.o"
+"lab04\stm32f0xx_hal_pwr.o"
+"lab04\stm32f0xx_hal_pwr_ex.o"
+"lab04\stm32f0xx_hal_flash.o"
+"lab04\stm32f0xx_hal_flash_ex.o"
+"lab04\stm32f0xx_hal_exti.o"
+"lab04\system_stm32f0xx.o"
+--strict --scatter "Lab04\Lab04.sct"
+--summary_stderr --info summarysizes --map --load_addr_map_info --xref --callgraph --symbols
+--info sizes --info totals --info unused --info veneers
+--list "Lab04.map" -o Lab04\Lab04.axf
