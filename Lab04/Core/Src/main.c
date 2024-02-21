@@ -31,6 +31,8 @@ void transmit_string(char chArray[]);
 
 void init_leds(void);
 
+void toggle_led(void);
+
 
 /**
   * @brief  The application entry point.
@@ -70,20 +72,51 @@ int main(void)
 	
 	// Enable USART3
 	USART3->CR1 |= USART_CR1_UE;
-
+	
+	// string to transmit
+	char chArray[] = {'c', 'h', 'a', 'r', '\n'};
+	
+	
   while (1)
-  {
-		//transmit_char('c');
-		//HAL_Delay(200); // Delay 200ms		
-		
-		// TODO1: once transmit_string() complete - modify to transmit a short phrase instead of a single character
-		
-		// TODO2: check the USART status flag is not empty
-		// 			 use switch statement to check received char is 'r', 'b', 'o', 'g' for red, blue, orange, green 
-		//		   switch the corresponding LED when matched
-		//       default case: print error message to console (use transmit_string()?)
-		//       Receive data register: USART3->RDR 
+  {	
+		transmit_string(chArray);
+		HAL_Delay(1000); // Delay 1sec
   }
+}
+
+void toggle_led(void)
+{
+	// TODO2: check the USART status flag is not empty
+	// 			 use switch statement to check received char is 'r', 'b', 'o', 'g' for red, blue, orange, green 
+	//		   switch the corresponding LED when matched
+	//       default case: print error message to console (use transmit_string()?)
+	//       Receive data register: USART3->RDR 
+	
+	while (!(USART3->ISR & (1 << 7))) 
+	{
+		// Wait for data to be transferred to shift register - transmit register is empty
+	}
+	
+	char er[] = {'E', 'R', 'R', 'O', 'R'};
+	char ch = USART3->RDR;
+	
+	switch (ch) 
+	{
+		case 'r':
+			GPIOC->ODR |= GPIO_ODR_6;
+			break;
+		case 'b':
+			GPIOC->ODR |= GPIO_ODR_7;
+			break;
+		case 'o':
+			GPIOC->ODR |= GPIO_ODR_8;
+			break;
+		case 'g':
+			GPIOC->ODR |= GPIO_ODR_9;
+			break;
+		default:
+			transmit_string(er);
+	}
 
 }
 
