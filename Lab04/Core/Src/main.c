@@ -79,20 +79,21 @@ int main(void)
 	
   while (1)
   {	
-		transmit_string(chArray);
-		HAL_Delay(1000); // Delay 1sec
+		//transmit_string(chArray);
+		//HAL_Delay(1000); // Delay 1sec
+		toggle_led();
   }
 }
 
 void toggle_led(void)
 {
-	// TODO2: check the USART status flag is not empty
+	// TODO: check the USART status flag is not empty
 	// 			 use switch statement to check received char is 'r', 'b', 'o', 'g' for red, blue, orange, green 
 	//		   switch the corresponding LED when matched
 	//       default case: print error message to console (use transmit_string()?)
 	//       Receive data register: USART3->RDR 
 	
-	while (!(USART3->ISR & (1 << 7))) 
+	while (!(USART3->ISR & (1 << 5))) 
 	{
 		// Wait for data to be transferred to shift register - transmit register is empty
 	}
@@ -103,19 +104,20 @@ void toggle_led(void)
 	switch (ch) 
 	{
 		case 'r':
-			GPIOC->ODR |= GPIO_ODR_6;
+			GPIOC->ODR ^= GPIO_ODR_6;
 			break;
 		case 'b':
-			GPIOC->ODR |= GPIO_ODR_7;
+			GPIOC->ODR ^= GPIO_ODR_7;
 			break;
 		case 'o':
-			GPIOC->ODR |= GPIO_ODR_8;
+			GPIOC->ODR ^= GPIO_ODR_8;
 			break;
 		case 'g':
-			GPIOC->ODR |= GPIO_ODR_9;
+			GPIOC->ODR ^= GPIO_ODR_9;
 			break;
 		default:
 			transmit_string(er);
+			return;
 	}
 
 }
@@ -171,7 +173,7 @@ void init_leds(void)
 	GPIOC->PUPDR &= ~((1<<18) | (1<<19)); // PC9
 	
 	// Set green PC9 high
-	GPIOC->ODR |= GPIO_ODR_9; // PC9 (green) high
+	//GPIOC->ODR |= GPIO_ODR_9; // PC9 (green) high
 }
 
 /**
