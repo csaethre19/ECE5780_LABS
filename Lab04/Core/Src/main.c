@@ -33,6 +33,7 @@ void init_leds(void);
 
 void toggle_led(void);
 
+uint32_t mode = GPIO_ODR_6;
 
 /**
   * @brief  The application entry point.
@@ -74,46 +75,67 @@ int main(void)
 	USART3->CR1 |= USART_CR1_UE;
 	
 	// string to transmit
-	char chArray[] = {'c', 'h', 'a', 'r', '\n'};
-	
+	char cmd[] = {'C', 'M', 'D', '\n', '\0'};
 	
   while (1)
   {	
 		//transmit_string(chArray);
 		//HAL_Delay(1000); // Delay 1sec
+		transmit_string(cmd);
 		toggle_led();
   }
 }
 
 void toggle_led(void)
 {
-	// TODO: check the USART status flag is not empty
-	// 			 use switch statement to check received char is 'r', 'b', 'o', 'g' for red, blue, orange, green 
-	//		   switch the corresponding LED when matched
-	//       default case: print error message to console (use transmit_string()?)
-	//       Receive data register: USART3->RDR 
-	
 	while (!(USART3->ISR & (1 << 5))) 
 	{
 		// Wait for data to be transferred to shift register - transmit register is empty
 	}
 	
-	char er[] = {'E', 'R', 'R', 'O', 'R'};
+	char er[] = {'E', 'R', 'R', 'O', 'R', '\n', '\0'};
+	char on[] = {'O', 'N', '\n', '\0'};
+	char off[] = {'O', 'F', 'F', '\n', '\0'};
+	char tog[] = {'T', 'O', 'G', 'G', 'L', 'E', '\n', '\0'};
+	char red[] = {'R', 'E', 'D', ' ', '\n', '\0'};
+	char blue[] = {'B', 'L', 'U', 'E', ' ', '\n', '\0'};
+	char orng[] = {'O', 'R', 'N', 'G', ' ', '\n', '\0'};
+	char grn[] = {'G', 'R', 'N', ' ', '\n', '\0'};
+			
 	char ch = USART3->RDR;
 	
 	switch (ch) 
 	{
 		case 'r':
-			GPIOC->ODR ^= GPIO_ODR_6;
+			mode = GPIO_ODR_6;
+			transmit_string(red);
 			break;
 		case 'b':
-			GPIOC->ODR ^= GPIO_ODR_7;
+			mode = GPIO_ODR_7;
+			transmit_string(blue);
 			break;
 		case 'o':
-			GPIOC->ODR ^= GPIO_ODR_8;
+			mode = GPIO_ODR_8;
+			transmit_string(orng);
 			break;
 		case 'g':
-			GPIOC->ODR ^= GPIO_ODR_9;
+			mode = GPIO_ODR_9;
+			transmit_string(grn);
+			break;
+		case '0':
+			// turn off
+			GPIOC->ODR &= ~(mode);
+			transmit_string(off);
+			break;
+		case '1':
+			// turn on
+			GPIOC->ODR |= mode;
+			transmit_string(on);
+			break;
+		case '2':
+			// toggle
+			GPIOC->ODR ^= mode;
+			transmit_string(tog);
 			break;
 		default:
 			transmit_string(er);
@@ -136,7 +158,7 @@ void transmit_char(char ch)
 void transmit_string(char chArray[]) 
 {
 	uint32_t i = 0;
-	while (chArray[i] != 0)
+	while (chArray[i] != '\0')
 	{
 		transmit_char(chArray[i]);
 		i++;
