@@ -51,12 +51,14 @@ int main(void)
 	
 	// set PB11 to open-drain output type using OTYPER reg
 	GPIOB->OTYPER |= (1 << 11);
-	// Select I2C2_SDA as alt func (using AFR register)
+	// Select I2C2_SDA as alt func (using AFR register bit pattern: AF1=0001)
+	GPIOB->AFR[0] |= 0x1 << GPIO_AFRH_AFSEL11_Pos;
 	
 	// Set PB13 to alt func mode (done above)
 	// set PB13 to open-drain output type
 	GPIOB->OTYPER |= (1 << 13);
-	// Select I2C2_SCL as alt func (using AFR register)
+	// Select I2C2_SCL as alt func (using AFR register bit pattern: AF5=0101)
+	GPIOB->AFR[0] |= 0x5 << GPIO_AFRH_AFSEL13_Pos;
 	
 	// Set PB14 to output mode, push-pull output type
 	GPIOB->MODER |= (1 << 28);
@@ -70,30 +72,67 @@ int main(void)
 	// set HIGH
 	GPIOC->ODR |= GPIO_ODR_0;
 	
+	
 	// 5.3: I2C set-up
 	// Enable I2C system clock using RCC register
+	RCC->APB1ENR |= RCC_APB1ENR_I2C1EN;
+	
 	// Configure bus timing using I2Cx_TIMINGR register to 100kHz standard-mode
+	I2C1->TIMINGR |= (0x1 << 28); // PRESC
+	I2C1->TIMINGR |= (0x13 << 0); // SCLL
+	I2C1->TIMINGR |= (0xF << 8); 	// SCHL
+	I2C1->TIMINGR |= (0x2 << 16); // SDADEL
+	I2C1->TIMINGR |= (0x4 << 20); // SCLDEL
+
 	// Enable I2C peripheral using PE bit in CR1 register
+	I2C1->CR1 |= I2C_CR1_PE;
+	
 	
 	// 5.4: Transaction set-up
 	// Use SADD[7:1] bit field in CR2 register to set slave address to 0x6B
+	I2C1->CR2 |= (0x6B << 1);
 	// Use NBYTES[7:0] bit field to set number of data bytes to be transmitted to 1
-	// Set RD_WRN to Write operation
+	I2C1->CR2 |= (0x1 << 16);
+	// Set RD_WRN to Write operation - 0 indicates WRITE
+	I2C1->CR2 |= (0 << 10);
 	// Set START bit to begin the address frame
+	I2C1->CR2 |= (0x1 << 13);
+	
 	
 	// While TXIS or NACKF flags not set wait
+	while (!(I2C1->ISR & (1 << 1))) {}
 	// Once TXIS flag set continue
+		
 	// Write address of WHO_AM_I register into the TXDR 
+	I2C1->TXDR = 0x0F;
+		
 	// Wait until TC flag set
-	
+	while (!(I2C1->ISR & (1 << 6))) {}
+		
+		
 	// Load same parameters as above but now with RD_WRN set to read operaiton
+	// Use SADD[7:1] bit field in CR2 register to set slave address to 0x6B
+	I2C1->CR2 |= (0x6B << 1);
+	// Use NBYTES[7:0] bit field to set number of data bytes to be transmitted to 1
+	I2C1->CR2 |= (0x1 << 16);
+	// Set RD_WRN to Write operation - 1 indicates READ
+	I2C1->CR2 |= (1 << 10);
+	// Set START bit to begin the address frame
+	I2C1->CR2 |= (0x1 << 13);
+		
 	// While RXNE or NACKF flags not set wait
+	while (!(I2C1->ISR & (1 << 2))) {}
 	// Once RXNE flag set continue
 	// Wait for TC flag set
+	while (!(I2C1->ISR & (1 << 6))) {}
 	// Check contents of RXDR register to see if it matches 0xD4
-	// If it matches toggle an LED to indicate success
+	if (I2C1->RXDR == 0xD4) 
+	{
+		// success - set red LED HIGH
+		GPIOC->ODR |= GPIO_ODR_6; 
+	}
 	// Set STOP bit in CR2 register to release I2C bus
-	
+	I2C1->CR2 |= (0x1 << 14);
 
   while (1)
   {
