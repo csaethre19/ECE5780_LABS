@@ -37,12 +37,14 @@ int main(void)
 	
 	init_leds();
 	
+	// PART ONE:
+	
 	// 5.1 Wire discovery board so it uses I2C instead of SPI - see lab manual
 	
 	
 	// 5.2:
 	// Enable GPIOB and GPIOC in RCC
-	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
+	//RCC->AHBENR |= RCC_AHBENR_GPIOCEN; already happening in init_leds()
 	RCC->AHBENR |= RCC_AHBENR_GPIOBEN;
 	
 	// Set PB11 to alt func mode (and PB13)
@@ -52,13 +54,13 @@ int main(void)
 	// set PB11 to open-drain output type using OTYPER reg
 	GPIOB->OTYPER |= (1 << 11);
 	// Select I2C2_SDA as alt func (using AFR register bit pattern: AF1=0001)
-	GPIOB->AFR[0] |= 0x1 << GPIO_AFRH_AFSEL11_Pos;
+	GPIOB->AFR[1] |= 0x1 << GPIO_AFRH_AFSEL11_Pos;
 	
 	// Set PB13 to alt func mode (done above)
 	// set PB13 to open-drain output type
 	GPIOB->OTYPER |= (1 << 13);
 	// Select I2C2_SCL as alt func (using AFR register bit pattern: AF5=0101)
-	GPIOB->AFR[0] |= 0x5 << GPIO_AFRH_AFSEL13_Pos;
+	GPIOB->AFR[1] |= 0x5 << GPIO_AFRH_AFSEL13_Pos;
 	
 	// Set PB14 to output mode, push-pull output type
 	GPIOB->MODER |= (1 << 28);
@@ -75,68 +77,101 @@ int main(void)
 	
 	// 5.3: I2C set-up
 	// Enable I2C system clock using RCC register
-	RCC->APB1ENR |= RCC_APB1ENR_I2C1EN;
+	RCC->APB1ENR |= RCC_APB1ENR_I2C2EN;
 	
-	// Configure bus timing using I2Cx_TIMINGR register to 100kHz standard-mode
-	I2C1->TIMINGR |= (0x1 << 28); // PRESC
-	I2C1->TIMINGR |= (0x13 << 0); // SCLL
-	I2C1->TIMINGR |= (0xF << 8); 	// SCHL
-	I2C1->TIMINGR |= (0x2 << 16); // SDADEL
-	I2C1->TIMINGR |= (0x4 << 20); // SCLDEL
+	// Configure bus timing using I2Cx_TIMINGR register to 100kHz standard-mode (taken from figure 5.4)
+	I2C2->TIMINGR |= (0x1 << 28); // PRESC
+	I2C2->TIMINGR |= (0x13 << 0); // SCLL
+	I2C2->TIMINGR |= (0xF << 8); 	// SCHL
+	I2C2->TIMINGR |= (0x2 << 16); // SDADEL
+	I2C2->TIMINGR |= (0x4 << 20); // SCLDEL
 
 	// Enable I2C peripheral using PE bit in CR1 register
-	I2C1->CR1 |= I2C_CR1_PE;
+	I2C2->CR1 |= I2C_CR1_PE;
 	
 	
 	// 5.4: Transaction set-up
-	// Use SADD[7:1] bit field in CR2 register to set slave address to 0x6B
-	I2C1->CR2 |= (0x6B << 1);
+	// Use SADD[7:1] bit field in CR2 register to set slave address to 0x69
+	I2C2->CR2 |= (0x69 << 1);
 	// Use NBYTES[7:0] bit field to set number of data bytes to be transmitted to 1
-	I2C1->CR2 |= (0x1 << 16);
-	// Set RD_WRN to Write operation - 0 indicates WRITE
-	I2C1->CR2 |= (0 << 10);
+	I2C2->CR2 |= (0x1 << 16);
+	// Set RD_WRN to WRITE operation - 0 indicates WRITE
+	I2C2->CR2 |= (0 << 10);
 	// Set START bit to begin the address frame
-	I2C1->CR2 |= (0x1 << 13);
+	I2C2->CR2 |= I2C_CR2_START;
 	
 	
 	// While TXIS or NACKF flags not set wait
-	while (!(I2C1->ISR & (1 << 1))) {}
+	while (!(I2C2->ISR & (I2C_ISR_TXIS | I2C_ISR_NACKF))) {}
 	// Once TXIS flag set continue
 		
+	// Check if NACK set
+	if (I2C2->ISR & I2C_ISR_NACKF)
+	{
+		GPIOC->ODR |= GPIO_ODR_8; // Orange - I2C not working!
+	}
+	
 	// Write address of WHO_AM_I register into the TXDR 
-	I2C1->TXDR = 0x0F;
+	I2C2->TXDR = 0x0F;
 		
 	// Wait until TC flag set
-	while (!(I2C1->ISR & (1 << 6))) {}
+	while (!(I2C2->ISR & I2C_ISR_TC)) {}
+
+	// Load same parameters as above but now with RD_WRN set to READ operaiton
 		
-		
-	// Load same parameters as above but now with RD_WRN set to read operaiton
-	// Use SADD[7:1] bit field in CR2 register to set slave address to 0x6B
-	I2C1->CR2 |= (0x6B << 1);
+	// Use SADD[7:1] bit field in CR2 register to set slave address to 0x69
+	I2C2->CR2 |= (0x69 << 1);
 	// Use NBYTES[7:0] bit field to set number of data bytes to be transmitted to 1
-	I2C1->CR2 |= (0x1 << 16);
-	// Set RD_WRN to Write operation - 1 indicates READ
-	I2C1->CR2 |= (1 << 10);
+	I2C2->CR2 |= (0x1 << 16);
+	// Set RD_WRN to READ operation - 1 indicates READ
+	I2C2->CR2 |= (1 << 10);
 	// Set START bit to begin the address frame
-	I2C1->CR2 |= (0x1 << 13);
+	I2C2->CR2 |= I2C_CR2_START;
 		
 	// While RXNE or NACKF flags not set wait
-	while (!(I2C1->ISR & (1 << 2))) {}
-	// Once RXNE flag set continue
-	// Wait for TC flag set
-	while (!(I2C1->ISR & (1 << 6))) {}
-	// Check contents of RXDR register to see if it matches 0xD4
-	if (I2C1->RXDR == 0xD4) 
+	while (!(I2C2->ISR & (I2C_ISR_RXNE | I2C_ISR_NACKF))) {}
+		
+	// Check if NACK set
+	if (I2C2->ISR & I2C_ISR_NACKF)
 	{
-		// success - set red LED HIGH
+		GPIOC->ODR |= GPIO_ODR_8; // Orange - I2C not working!
+	}
+	// Once RXNE flag set continue
+		
+	// Wait for TC flag set
+	while (!(I2C2->ISR & I2C_ISR_TC)) {}
+		
+	// Check contents of RXDR register to see if it matches 0xD3
+	if (I2C2->RXDR == 0xD3) 
+	{
+		// SUCCESS - set blue LED HIGH
+		GPIOC->ODR |= GPIO_ODR_7; 
+	}
+	else 
+	{
+		// FAILURE - set red LED HIGH
 		GPIOC->ODR |= GPIO_ODR_6; 
 	}
 	// Set STOP bit in CR2 register to release I2C bus
-	I2C1->CR2 |= (0x1 << 14);
+	I2C2->CR2 |= I2C_CR2_STOP;
+	
+	// PART TWO:
+	
+	// Enable X,Y axes in CTRL_REG1
+	
+	// Set sensor to 'normal mode' using PD bit in CTRL_REG1
+	
+	// Init Gyro to read X, Y axes
 
   while (1)
   {
-		
+		// Read X and Y axis data registers every 100ms
+		// - need to assemble 16-bit measured value from the two data registers for each axis
+			
+		// Use four LEDs to indicate each measured axis is pos/neg
+		// - Set min threshold before changing active LED
+		// - Design application such that LED nearest direction of rotation lights up
+		HAL_Delay(100);
   }
 
 }
@@ -146,11 +181,11 @@ void init_leds(void)
 	// Enable the GPIOC clock in the RCC
 	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
 	
-	// Set pins PC6 to general purpose output mode in MODER register
-  GPIOC->MODER |= (1<<12); // PC6
-	GPIOC->MODER |= (1<<14); // PC7
-  GPIOC->MODER |= (1<<16); // PC8
-	GPIOC->MODER |= (1<<18); // PC9
+	// Set pins to general purpose output mode in MODER register
+  GPIOC->MODER |= (1<<12); // PC6 RED
+	GPIOC->MODER |= (1<<14); // PC7 BLUE
+  GPIOC->MODER |= (1<<16); // PC8 ORANGE
+	GPIOC->MODER |= (1<<18); // PC9 GREEN
 	
 	// Set pins to push-pull output type in OTYPER register
 	GPIOC->OTYPER &= ~(1<<6); // PC6
