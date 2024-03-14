@@ -23,6 +23,10 @@
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 
+void I2C_WriteRegister(uint16_t deviceAddr, uint16_t data);
+
+uint8_t I2C_ReadRegister(uint16_t deviceAddr);
+
 void init_leds(void);
 
 /**
@@ -112,7 +116,9 @@ int main(void)
 	}
 	
 	// Write address of WHO_AM_I register into the TXDR 
-	I2C2->TXDR = 0x0F;
+	//I2C2->TXDR = 0x0F; - from part one
+	// Write address of CTRL_REG1 into TXDR
+	I2C2->TXDR = 0x20;
 		
 	// Wait until TC flag set
 	while (!(I2C2->ISR & I2C_ISR_TC)) {}
@@ -174,6 +180,69 @@ int main(void)
 		HAL_Delay(100);
   }
 
+}
+
+/*
+
+	I2C communication handler for writing to specified device.
+	deviceAddr - Address of device communicating on I2C
+	data 			 - Either a register address or the data to be written to a register
+
+*/
+void I2C_WriteRegister(uint16_t deviceAddr, uint16_t data) 
+{
+	// Use SADD[7:1] bit field in CR2 register to set slave address to addr
+	I2C2->CR2 |= (deviceAddr << 1);
+	// Use NBYTES[7:0] bit field to set number of data bytes to be transmitted to 1
+	I2C2->CR2 |= (0x1 << 16);
+	// Set RD_WRN to WRITE operation - 0 indicates WRITE
+	I2C2->CR2 |= (0 << 10);
+	// Set START bit to begin the address frame
+	I2C2->CR2 |= I2C_CR2_START;
+	
+	// While TXIS or NACKF flags not set wait
+	while (!(I2C2->ISR & (I2C_ISR_TXIS | I2C_ISR_NACKF))) {}
+	// Once TXIS flag set continue
+	
+	// Write data into the TXDR 
+	I2C2->TXDR = data;
+		
+	// Wait until TC flag set - transfer complete
+	while (!(I2C2->ISR & I2C_ISR_TC)) {}
+}
+
+/*
+
+	I2C communication handler for reading from specified device.
+	deviceAddr - Address of device communicating on I2C
+	returns		 - 1 byte of data read from specified register
+*/
+uint8_t I2C_ReadRegister(uint16_t deviceAddr) 
+{
+	uint8_t data = 0;
+	// Use SADD[7:1] bit field in CR2 register to set slave address to 0x69
+	I2C2->CR2 |= (deviceAddr << 1);
+	// Use NBYTES[7:0] bit field to set number of data bytes to be transmitted to 1
+	I2C2->CR2 |= (0x1 << 16);
+	// Set RD_WRN to READ operation - 1 indicates READ
+	I2C2->CR2 |= (1 << 10);
+	// Set START bit to begin the address frame
+	I2C2->CR2 |= I2C_CR2_START;
+		
+	// While RXNE or NACKF flags not set wait
+	while (!(I2C2->ISR & (I2C_ISR_RXNE | I2C_ISR_NACKF))) {}
+	// Once RXNE flag set continue
+		
+	// Wait for TC flag set
+	while (!(I2C2->ISR & I2C_ISR_TC)) {}
+		
+	// Read contents of RXDR register and return data - remember it is 1 byte at a time
+	data = I2C2->RXDR;
+		
+	// Set STOP bit in CR2 register to release I2C bus
+	I2C2->CR2 |= I2C_CR2_STOP;
+	
+	return data;
 }
 
 void init_leds(void)
