@@ -23,9 +23,9 @@
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 
-void I2C_WriteRegister(uint16_t deviceAddr, uint16_t data);
+void I2C_WriteRegister(uint16_t deviceAddr, uint8_t data);
 
-uint8_t I2C_ReadRegister(uint16_t deviceAddr);
+int8_t I2C_ReadRegister(uint16_t deviceAddr);
 
 void Enable_Ports();
 
@@ -34,6 +34,12 @@ void Init_Ports();
 void I2C_SetUp();
 
 void Init_LEDs(void);
+
+void USART_SetUp();
+
+void Transmit_Byte(uint8_t b);
+
+#define L3GD20 0x69
 
 /**
   * @brief  The application entry point.
@@ -53,38 +59,77 @@ int main(void)
 	
 	I2C_SetUp();
 	
-	I2C_WriteRegister(0x69, 0x0F); // Write WHO_AM_I address 
+	// PART ONE:
+	//I2C_WriteRegister(L3GD20, 0x0F); // Write WHO_AM_I address 
 
-	uint8_t data = I2C_ReadRegister(0x69); // Read from WHO_AM_I register
+	//uint8_t data = I2C_ReadRegister(L3GD20); // Read from WHO_AM_I register
 	
-	if (data == 0xD3) // WHO_AM_I register should contain this value
-	{
-		// SUCCESS - set blue LED HIGH
-		GPIOC->ODR |= GPIO_ODR_7; 
-	}
-	else 
-	{
-		// FAILURE - set red LED HIGH
-		GPIOC->ODR |= GPIO_ODR_6; 
-	}
+	//if (data == 0xD3) 	GPIOC->ODR |= GPIO_ODR_7; // SUCCESS - set blue LED HIGH
+	//else GPIOC->ODR |= GPIO_ODR_6; // FAILURE - set red LED HIGH
+	
+	// Set up USART for debugging
+	USART_SetUp();
 	
 	// PART TWO:
 	
-	//I2C_WriteRegister(0x69, 0x20); // Write CTRL_REG1 address
-	// Enable X,Y axes in CTRL_REG1 - enabled by default
-	// Set sensor to 'normal mode' using PD bit in CTRL_REG1
-	//I2C_WriteRegister(0x69, ); // Set bit 3 to 1 to set to normal mode
-	
 	// Init Gyro to read X, Y axes
-
+	// Enable X,Y axes in CTRL_REG1 - enabled by default
+	// Set sensor to 'normal mode' using PD bit in CTRL_REG1 - bit 3 to 1 for normal mode
+	
+	I2C_WriteRegister(L3GD20, 0x20); // Write CTRL_REG1 address
+	int8_t current_ctrl_reg1 = I2C_ReadRegister(L3GD20);
+	int8_t normal_mode = 0xB;
+	
+	I2C_WriteRegister(L3GD20, 0x20); // Write CTRL_REG1 address
+	I2C_WriteRegister(L3GD20, normal_mode); 
+	
+	I2C_WriteRegister(L3GD20, 0x20); // Write CTRL_REG1 address
+	int8_t test = I2C_ReadRegister(L3GD20);
+	if (test == 0xB) GPIOC->ODR |= GPIO_ODR_8;
+	if (test == 0x3) GPIOC->ODR |= GPIO_ODR_9;
+	if (test == 0x0) GPIOC->ODR |= GPIO_ODR_6;
+	if (test == 0x1) GPIOC->ODR |= GPIO_ODR_7;
+	
   while (1)
   {
-		// Read X and Y axis data registers every 100ms
+		// Read X and Y axis data registers every 100ms:
 		// - need to assemble 16-bit measured value from the two data registers for each axis
-			
+		
 		// Use four LEDs to indicate each measured axis is pos/neg
 		// - Set min threshold before changing active LED
 		// - Design application such that LED nearest direction of rotation lights up
+		
+		// When Y in positive direction -> light up ORANGE
+		// When Y in negative direction -> light up GREEN
+		// When X in positive direction -> light up RED
+		// When X in negative direction -> light up BLUE
+		
+		I2C_WriteRegister(L3GD20, 0xA8); // 0xA8 is the X-Axis Data register address for both low and high data bytes
+		int8_t x_low = I2C_ReadRegister(L3GD20); 
+		int8_t x_high = I2C_ReadRegister(L3GD20); 
+		int16_t x_data = (int16_t)(x_high << 8) | x_low;
+		
+		I2C_WriteRegister(L3GD20, 0xAA); // 0xAA is the Y-Axis Data register address for both low and high data bytes
+		int8_t y_low = I2C_ReadRegister(L3GD20); 
+		int8_t y_high = I2C_ReadRegister(L3GD20);
+		int16_t y_data = (int16_t)(y_high << 8) | y_low;
+		
+		int16_t threshold = 100;
+		
+		GPIOC->ODR &= ~(GPIO_ODR_7 | GPIO_ODR_6 | GPIO_ODR_8 | GPIO_ODR_9); // Reset the ODR bits for LEDs
+
+		if (x_data > threshold) {
+				//GPIOC->ODR |= GPIO_ODR_6; // Red LED for positive X
+		} else if (x_data < -threshold) {
+				//GPIOC->ODR |= GPIO_ODR_7; // Blue LED for negative X
+		}
+
+		if (y_data > threshold) {
+				//GPIOC->ODR |= GPIO_ODR_8; // Orange LED for positive Y
+		} else if (y_data < -threshold) {
+				//GPIOC->ODR |= GPIO_ODR_9; // Green LED for negative Y
+		}
+		
 		HAL_Delay(100);
   }
 
@@ -97,26 +142,40 @@ int main(void)
 	data 			 - Either a register address or the data to be written to a register
 
 */
-void I2C_WriteRegister(uint16_t deviceAddr, uint16_t data) 
+void I2C_WriteRegister(uint16_t deviceAddr, uint8_t data) 
 {
+	//Transmit_Byte('W');
+	//Transmit_Byte('\n');
+	
 	// Use SADD[7:1] bit field in CR2 register to set slave address to addr
 	I2C2->CR2 |= (deviceAddr << 1);
 	// Use NBYTES[7:0] bit field to set number of data bytes to be transmitted to 1
 	I2C2->CR2 |= (0x1 << 16);
 	// Set RD_WRN to WRITE operation - 0 indicates WRITE
-	I2C2->CR2 |= (0 << 10);
+	I2C2->CR2 &= ~(1 << 10);
 	// Set START bit to begin the address frame
 	I2C2->CR2 |= I2C_CR2_START;
 	
 	// While TXIS or NACKF flags not set wait
-	while (!(I2C2->ISR & (I2C_ISR_TXIS | I2C_ISR_NACKF))) {}
+	while (!(I2C2->ISR & (I2C_ISR_TXIS | I2C_ISR_NACKF))) {} // getting stuck here on second call to this function!
 	// Once TXIS flag set continue
+	
+	//Transmit_Byte('1');
+	//Transmit_Byte('\n');
+		
+	// Check if NACK set
+	if (I2C2->ISR & I2C_ISR_NACKF)
+	{
+		GPIOC->ODR |= GPIO_ODR_6; // RED - I2C not working!
+	}
 	
 	// Write data into the TXDR 
 	I2C2->TXDR = data;
 		
 	// Wait until TC flag set - transfer complete
 	while (!(I2C2->ISR & I2C_ISR_TC)) {}
+		//Transmit_Byte('2');
+		//Transmit_Byte('\n');
 }
 
 /*
@@ -125,10 +184,13 @@ void I2C_WriteRegister(uint16_t deviceAddr, uint16_t data)
 	deviceAddr - Address of device communicating on I2C
 	returns		 - 1 byte of data read from specified register
 */
-uint8_t I2C_ReadRegister(uint16_t deviceAddr) 
+int8_t I2C_ReadRegister(uint16_t deviceAddr) 
 {
-	uint8_t data = 0;
-	// Use SADD[7:1] bit field in CR2 register to set slave address to 0x69
+	int8_t data = 0;
+	//Transmit_Byte('R');
+	//Transmit_Byte('\n');
+
+	// Use SADD[7:1] bit field in CR2 register to set slave address to L3GD20
 	I2C2->CR2 |= (deviceAddr << 1);
 	// Use NBYTES[7:0] bit field to set number of data bytes to be transmitted to 1
 	I2C2->CR2 |= (0x1 << 16);
@@ -140,6 +202,12 @@ uint8_t I2C_ReadRegister(uint16_t deviceAddr)
 	// While RXNE or NACKF flags not set wait
 	while (!(I2C2->ISR & (I2C_ISR_RXNE | I2C_ISR_NACKF))) {}
 	// Once RXNE flag set continue
+	
+	// Check if NACK set
+	if (I2C2->ISR & I2C_ISR_NACKF)
+	{
+		GPIOC->ODR |= GPIO_ODR_8; // ORANGE - I2C not working!
+	}
 		
 	// Wait for TC flag set
 	while (!(I2C2->ISR & I2C_ISR_TC)) {}
@@ -148,13 +216,15 @@ uint8_t I2C_ReadRegister(uint16_t deviceAddr)
 	data = I2C2->RXDR;
 		
 	// Set STOP bit in CR2 register to release I2C bus
-	I2C2->CR2 |= I2C_CR2_STOP;
+	//I2C2->CR2 |= I2C_CR2_STOP;
 	
 	return data;
 }
 
 void I2C_SetUp()
 {
+	// PB11 -> SDA Line (data)
+	// PB13 -> SCL Line (clock)
 	// Enable I2C system clock using RCC register
 	RCC->APB1ENR |= RCC_APB1ENR_I2C2EN;
 	
@@ -167,6 +237,47 @@ void I2C_SetUp()
 
 	// Enable I2C peripheral using PE bit in CR1 register
 	I2C2->CR1 |= I2C_CR1_PE;
+}
+
+void USART_SetUp()
+{
+	// Configure pins PC4 and PC5 to alternate function mode:
+	// PC4 -> USART_3TX (transmitter)
+	// PC5 -> USART_3RX (receiver)
+	// Use bit pattern for AF1 -> 0001
+	// Using GPIOC_AFRL register
+	
+	GPIOC->MODER = (GPIOC->MODER & ~(GPIO_MODER_MODER4 | GPIO_MODER_MODER5)) 
+								| GPIO_MODER_MODER4_1 | GPIO_MODER_MODER5_1; 
+								
+	// Select appropriate function number in alternate function registers 
+	GPIOC->AFR[0] |= 0x1 << GPIO_AFRL_AFRL4_Pos;
+	GPIOC->AFR[0] |= 0x1 << GPIO_AFRL_AFRL5_Pos;
+	
+	// Enable system clock for USART3 in RCC peripheral
+	RCC->APB1ENR |= RCC_APB1ENR_USART3EN;
+	
+	// Set Baud rate for communication to 115200 bits/second
+	uint32_t clk_freq = HAL_RCC_GetHCLKFreq();
+	USART3->BRR = clk_freq / 115200;
+	
+	// Enable transmitter and receiver hardware
+	USART3->CR1 |= USART_CR1_TE;
+	USART3->CR1 |= USART_CR1_RE;
+	
+	// Enable USART3
+	USART3->CR1 |= USART_CR1_UE;
+}
+
+void Transmit_Byte(uint8_t b)
+{
+	while (!(USART3->ISR & (1 << 7))) 
+	{
+		// Wait for data to be transferred to shift register - transmit register is empty
+	}
+	
+	// Write the byte into the transmit data register
+	USART3->TDR = b;
 }
 
 void Enable_Ports()
