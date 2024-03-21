@@ -33,6 +33,12 @@ void USART_Transmit_Number(int16_t number);
 
 void USART_Transmit_Newline();
 
+void ADC_Threshold_LEDs();
+
+void ADC_Config();
+
+void DAC_Config();
+
 /**
   * @brief  The application entry point.
   * @retval int
@@ -45,88 +51,24 @@ int main(void)
 	
 	Init_LEDs();
 	
-	// PC0 -> ADC_IN10
-	// set PC0 to analog mode and no pull-up/down resistors
-	GPIOC->MODER |=  (1<<0); 
-	GPIOC->MODER |=  (1<<1); 
-	GPIOC->PUPDR &= ~(1<<0);
-	GPIOC->PUPDR &= ~(1<<1);
+	ADC_Config();
 	
-	// Connect center pin of pot to PC0 and legs to 3V and GND
+	DAC_Config();
 	
-	// Enable the ADC1 in the RCC 
-	RCC->APB2ENR |= RCC_APB2ENR_ADCEN;
-	
-	// Configure ADC to 8-bit resolution, continuous conversion mode, hardware triggers disabled
-	ADC1->CFGR1 |=  (1<<4);     // 8-bit resolution - bits [4:3] b10
-	ADC1->CFGR1 &=  ~(1<<3);
-	ADC1->CFGR1 |=  (1<<13);     // continuous conversion mode - bit 13 b01
-	ADC1->CFGR1 &= ~(1<<11);    // hardware triggers disabled - bits [11:10] b00
-	ADC1->CFGR1 &= ~(1<<10);
-	
-	// Select/enable the input pin's channel for ADC conversion:
-	ADC1->CHSELR |= ADC_CHSELR_CHSEL10;
-	
-	// Perform self-calibration, enable, and start ADC:
-	
-	/* From Code Example in Datasheet */
-	if ((ADC1->CR & ADC_CR_ADEN) != 0)
-	{
-		ADC1->CR |= ADC_CR_ADDIS; // clear ADEN by setting ADDIS
-	}
-	while ((ADC1->CR & ADC_CR_ADEN) != 0) {} 
-		
-	ADC1->CFGR1 &= ~ADC_CFGR1_DMAEN; // clear DMAEN
-	ADC1->CR |= ADC_CR_ADCAL; // Launch calibration by setting ADCAL
-		
-	while ((ADC1->CR & ADC_CR_ADCAL) !=0) {} // Wait until ADCAL=0
-	
-	/* From Code Example in Datasheet */
-	if ((ADC1->ISR & ADC_ISR_ADRDY) != 0)
-	{
-		ADC1->ISR |= ADC_ISR_ADRDY;
-	}
-	
-	ADC1->CR |= ADC_CR_ADEN; // Enabling ADC
-	
-	while ((ADC1->ISR & ADC_ISR_ADRDY) == 0) 
-	{
-		// wait until ADC Ready
-	}
-	
-	// Start ADC	
-	ADC1->CR |= ADC_CR_ADSTART; 
+	// Sine Wave: 8-bit, 32 samples/cycle
+	const uint8_t sine_table[32] = {127,151,175,197,216,232,244,251,254,251,244,
+	232,216,197,175,151,127,102,78,56,37,21,9,2,0,2,9,21,37,56,78,102};
 
-	USART_SetUp();
-	
+	uint16_t index;
 		
   while (1)
   {
-		// Read ADC data register 
-		int16_t data = ADC1->DR;
-		// Turn on/off LEDs depending on the value
-		USART_Transmit_String("Data: ");
-		USART_Transmit_Number(data);
-		USART_Transmit_Newline();
-	
-		// Use four increasing threshold values, each LED should have a min ADC value to turn on 
-		// voltage increases -> LEDs should light one by one
-		// if pin voltage decreases below threshold for an LED -> turn off
+		HAL_Delay(1);
 		
-		// LED    -> THRESHOLD:
-		// RED    -> 20
-		// Orange -> 80
-		// Green  -> 140
-		// Blue   -> 200
-		if (data >= 20) GPIOC->ODR |= GPIO_ODR_6;
-		else GPIOC->ODR &= ~GPIO_ODR_6;
-		if (data >= 80) GPIOC->ODR |= GPIO_ODR_8;
-		else GPIOC->ODR &= ~GPIO_ODR_8;
-		if (data >= 140) GPIOC->ODR |= GPIO_ODR_9;
-		else GPIOC->ODR &= ~GPIO_ODR_9;
-		if (data >= 200) GPIOC->ODR |= GPIO_ODR_7;
-		else GPIOC->ODR &= ~GPIO_ODR_7;
-
+		DAC->DHR8R1 = sine_table[index];
+		
+		if (index == 31) index = 0;
+		else             index++;
   }
 
 }
@@ -166,6 +108,105 @@ void SystemClock_Config(void)
   }
 }
 
+void ADC_Config()
+{
+// PC0 -> ADC_IN10
+	// set PC0 to analog mode and no pull-up/down resistors
+	GPIOC->MODER |=  (1<<0); 
+	GPIOC->MODER |=  (1<<1); 
+	GPIOC->PUPDR &= ~(1<<0);
+	GPIOC->PUPDR &= ~(1<<1);
+	
+	// Connect center pin of pot to PC0 and legs to 3V and GND
+	
+	// Enable the ADC1 in the RCC 
+	RCC->APB2ENR |= RCC_APB2ENR_ADCEN;
+	
+	// Configure ADC to 8-bit resolution, continuous conversion mode, hardware triggers disabled
+	ADC1->CFGR1 |=  (1<<4);     // 8-bit resolution - bits [4:3] b10
+	ADC1->CFGR1 &=  ~(1<<3);
+	ADC1->CFGR1 |=  (1<<13);     // continuous conversion mode - bit 13 b01
+	ADC1->CFGR1 &= ~(1<<11);    // hardware triggers disabled - bits [11:10] b00
+	ADC1->CFGR1 &= ~(1<<10);
+	
+	// Select/enable the input pin's channel for ADC conversion:
+	ADC1->CHSELR |= ADC_CHSELR_CHSEL10;
+	
+	// Perform self-calibration, enable, and start ADC:
+	
+	/* From Code Example in Datasheet */
+	if ((ADC1->CR & ADC_CR_ADEN) != 0)
+	{
+		ADC1->CR |= ADC_CR_ADDIS; // clear ADEN by setting ADDIS
+	}
+	
+	while ((ADC1->CR & ADC_CR_ADEN) != 0) {} 
+		
+	ADC1->CFGR1 &= ~ADC_CFGR1_DMAEN; // clear DMAEN
+	ADC1->CR |= ADC_CR_ADCAL; // Launch calibration by setting ADCAL
+		
+	while ((ADC1->CR & ADC_CR_ADCAL) !=0) {} // Wait until ADCAL=0
+	
+	/* From Code Example in Datasheet */
+	if ((ADC1->ISR & ADC_ISR_ADRDY) != 0)
+	{
+		ADC1->ISR |= ADC_ISR_ADRDY;
+	}
+	
+	ADC1->CR |= ADC_CR_ADEN; // Enabling ADC
+	
+	while ((ADC1->ISR & ADC_ISR_ADRDY) == 0) 
+	{
+		// wait until ADC Ready
+	}
+	
+	// Start ADC	
+	ADC1->CR |= ADC_CR_ADSTART;
+	
+}
+
+void DAC_Config() 
+{
+	// Configure DAC GPIO pin to analog mode / no pull/push resistors (PA4 -> DAC_OUT1 channel 1)
+	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
+	RCC->APB1ENR |= RCC_APB1ENR_DACEN;
+	
+	GPIOA->MODER |=  (1<<9); 
+	GPIOA->MODER |=  (1<<8); 
+	GPIOA->PUPDR &= ~(1<<9);
+	GPIOA->PUPDR &= ~(1<<8);
+	
+	// Connect oscilloscope to pin
+	
+	// Set the used DAC channel to software trigger mode
+	DAC->CR |= (1<<5);
+	DAC->CR |= (1<<4);
+	DAC->CR |= (1<<3);
+	
+	// Enable used DAC channel
+	DAC->CR |= (1<<0);
+}
+
+void ADC_Threshold_LEDs()
+{
+		// LED    -> THRESHOLD:
+		// RED    -> 20
+		// Orange -> 80
+		// Green  -> 140
+		// Blue   -> 200
+	
+		int16_t data = ADC1->DR;
+	
+		if (data >= 20) GPIOC->ODR |= GPIO_ODR_6;
+		else GPIOC->ODR &= ~GPIO_ODR_6;
+		if (data >= 80) GPIOC->ODR |= GPIO_ODR_8;
+		else GPIOC->ODR &= ~GPIO_ODR_8;
+		if (data >= 140) GPIOC->ODR |= GPIO_ODR_9;
+		else GPIOC->ODR &= ~GPIO_ODR_9;
+		if (data >= 200) GPIOC->ODR |= GPIO_ODR_7;
+		else GPIOC->ODR &= ~GPIO_ODR_7;
+}
+
 void Init_LEDs(void)
 {
 	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
@@ -192,87 +233,6 @@ void Init_LEDs(void)
 	GPIOC->PUPDR &= ~((1<<14) | (1<<15)); // PC7
 	GPIOC->PUPDR &= ~((1<<16) | (1<<17)); // PC8
 	GPIOC->PUPDR &= ~((1<<18) | (1<<19)); // PC9
-}
-
-void USART_SetUp() {
-	// Configure pins PC4 and PC5 to alternate function mode:
-	// PC4 -> USART_3TX (transmitter)
-	// PC5 -> USART_3RX (receiver)
-	// Use bit pattern for AF1 -> 0001
-	// Using GPIOC_AFRL register
-	// BAUD RATE: 115200
-	
-	GPIOC->MODER = (GPIOC->MODER & ~(GPIO_MODER_MODER4 | GPIO_MODER_MODER5)) 
-								| GPIO_MODER_MODER4_1 | GPIO_MODER_MODER5_1; 
-								
-	// Select appropriate function number in alternate function registers 
-	GPIOC->AFR[0] |= 0x1 << GPIO_AFRL_AFRL4_Pos;
-	GPIOC->AFR[0] |= 0x1 << GPIO_AFRL_AFRL5_Pos;
-	
-	// Enable system clock for USART3 in RCC peripheral
-	RCC->APB1ENR |= RCC_APB1ENR_USART3EN;
-	
-	// Set Baud rate for communication to 115200 bits/second
-	uint32_t clk_freq = HAL_RCC_GetHCLKFreq();
-	USART3->BRR = clk_freq / 115200;
-	
-	// Enable transmitter and receiver hardware
-	USART3->CR1 |= USART_CR1_TE;
-	USART3->CR1 |= USART_CR1_RE;
-	
-	// Enable USART3
-	USART3->CR1 |= USART_CR1_UE;
-}
-
-void USART_Transmit_Byte(uint8_t b)
-{
-	while (!(USART3->ISR & (1 << 7))) 
-	{
-		// Wait for data to be transferred to shift register - transmit register is empty
-	}
-	
-	// Write the byte into the transmit data register
-	USART3->TDR = b;
-}
-
-void USART_Transmit_String(const char* str)
-{
-    while (*str)
-    {
-        USART_Transmit_Byte((uint8_t)(*str));
-        str++;
-    }
-}
-
-void USART_Transmit_Number(int16_t number)
-{
-		int base = 10;
-    char numberString[7]; // "-32768" + null terminator
-    char* ptr = numberString, *ptr1 = numberString, tmp_char;
-    int tmp_value;
-
-    do {
-        tmp_value = number;
-        number /= base;
-        *ptr++ = "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghijklmnopqrstuvwxyz" [35 + (tmp_value - number * base)];
-    } while ( number );
-
-    // Apply negative sign
-    if (tmp_value < 0) *ptr++ = '-';
-    *ptr-- = '\0';
-    while(ptr1 < ptr) {
-        tmp_char = *ptr;
-        *ptr--= *ptr1;
-        *ptr1++ = tmp_char;
-    }
-		
-		USART_Transmit_String(numberString);
-}
-
-void USART_Transmit_Newline()
-{
-    USART_Transmit_Byte('\r'); // Carriage Return
-    USART_Transmit_Byte('\n'); // Line Feed
 }
 
 /**
