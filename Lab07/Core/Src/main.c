@@ -83,7 +83,7 @@ int main(int argc, char* argv[]) {
     button_init();                          // Initialize button
 
     motor_init();                           // Initialize motor code
-
+	
     while (1) {
         GPIOC->ODR ^= GPIO_ODR_9;           // Toggle green LED (heartbeat)
         encoder_count = TIM2->CNT;
